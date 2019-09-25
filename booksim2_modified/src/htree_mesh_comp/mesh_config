@@ -30,8 +30,8 @@
 // Topology
 
 topology = mesh;
-k = 4;
-n = 2;
+k=8;
+n=2;
 
 // Routing
 routing_function = dor;
