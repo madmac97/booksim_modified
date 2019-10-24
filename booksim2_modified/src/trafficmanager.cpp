@@ -801,7 +801,7 @@ int TrafficManager::_IssuePacket( int source, int cl )
         } else {
       
             //produce a packet
-            if(_injection_process[cl]->test(source)) {
+            if(_injection_process[cl]->test(source, _time)) {
 	
                 //coin toss to determine request type.
                 result = (RandomFloat() < _write_fraction[cl]) ? 2 : 1;
@@ -810,7 +810,7 @@ int TrafficManager::_IssuePacket( int source, int cl )
             }
         }
     } else { //normal mode
-        result = _injection_process[cl]->test(source) ? 1 : 0;
+        result = _injection_process[cl]->test(source, _time) ? 1 : 0;
         _requestsOutstanding[source]++;
     } 
     if(result != 0) {
@@ -828,7 +828,7 @@ void TrafficManager::_GeneratePacket( int source, int stype,
     int size = _GetNextPacketSize(cl); //input size 
     int pid = _cur_pid++;
     assert(_cur_pid);
-    int packet_destination = _traffic_pattern[cl]->dest(source);
+    int packet_destination = _traffic_pattern[cl]->dest(source, time);
     bool record = false;
     bool watch = gWatchOut && (_packets_to_watch.count(pid) > 0);
     if(_use_read_write[cl]){
@@ -1669,7 +1669,7 @@ bool TrafficManager::Run( )
         // warm-up ...
         // reset stats, all packets after warmup_time marked
         // converge
-        // draing, wait until all packets finish
+        // drain, wait until all packets finish
         _sim_state    = warming_up;
   
         _ClearStats( );

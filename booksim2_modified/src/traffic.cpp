@@ -193,6 +193,8 @@ TrafficPattern * TrafficPattern::New(string const & pattern, int nodes,
     result = new HotSpotTrafficPattern(nodes, hotspots, rates);
   } else if(pattern_name == "custom") { //Added by SKM
     result = new CustomTrafficPattern(nodes);
+  } else if(pattern_name == "trace_based") { //Added by SKM
+    result = new TraceBasedTrafficPattern(nodes);
     
   } else {
     cout << "Error: Unknown traffic pattern: " << pattern << endl;
@@ -276,7 +278,7 @@ CustomTrafficPattern::CustomTrafficPattern(int nodes)
     }
 }
 
-int CustomTrafficPattern::dest(int source)
+int CustomTrafficPattern::dest(int source, int time)
 {
     //Find a dest
 
@@ -304,6 +306,77 @@ int CustomTrafficPattern::dest(int source)
 }
 
 
+
+TraceBasedTrafficPattern::TraceBasedTrafficPattern(int nodes)
+  : TrafficPattern(nodes)
+{
+
+    FILE* trace_file = fopen("trace_file.txt", "r");
+    
+    //resizing the trace
+    traces.resize(99999);
+
+    for (int trace_idx = 0; trace_idx < 99999; trace_idx++) {
+        traces[trace_idx].resize(3); //src, dest, timestamp
+    }
+    
+    //Populate vector<vector<int> > traces
+    char line[9999];
+    int str_idx;
+    int trace_idx = 0;
+    int num_entry, entry;
+
+    while(fgets(line, 9999, trace_file)) {
+        int char_idx = 0;
+        char character = line[char_idx];
+        num_entry = 0; //src, dest, timestamp
+        while (character != '\n') {
+            str_idx = 0;
+            char str_entry[9999] = " ";
+            assert(num_entry <= 3);
+            while (character != ' ' && character != '\n') {
+                str_entry[str_idx] = line[char_idx];
+                char_idx++;
+                character = line[char_idx];
+                str_idx++;
+            }
+            entry = atoi(str_entry);
+            traces[trace_idx][num_entry] = entry;
+            num_entry++;
+            if (character != '\n') {
+                char_idx++;
+                character = line[char_idx];
+            }
+        }
+        trace_idx++;
+    }
+
+}
+
+int TraceBasedTrafficPattern::dest(int source, int time)
+{
+
+    int trace_time = traces[0][2];
+    int trace_idx = 0;
+    int dest = -99;
+
+    //Assumption: entries from previous time should get deleted
+    assert(trace_time >= time);
+
+    while (trace_time == time) { 
+        if (traces[trace_idx][0] == source) {
+            dest = traces[trace_idx][1];
+            traces.erase(traces.begin() + trace_idx); //Erase the entry
+            return dest;
+        }
+        trace_idx++;
+        trace_time = traces[trace_idx][2];
+    }
+
+    assert(dest != -99);
+    return dest;
+}
+
 PermutationTrafficPattern::PermutationTrafficPattern(int nodes)
   : TrafficPattern(nodes)
 {
@@ -326,7 +399,7 @@ BitCompTrafficPattern::BitCompTrafficPattern(int nodes)
   
 }
 
-int BitCompTrafficPattern::dest(int source)
+int BitCompTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   int const mask = _nodes - 1;
@@ -347,7 +420,7 @@ TransposeTrafficPattern::TransposeTrafficPattern(int nodes)
   _shift >>= 1;
 }
 
-int TransposeTrafficPattern::dest(int source)
+int TransposeTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   int const mask_lo = (1 << _shift) - 1;
@@ -361,7 +434,7 @@ BitRevTrafficPattern::BitRevTrafficPattern(int nodes)
   
 }
 
-int BitRevTrafficPattern::dest(int source)
+int BitRevTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   int result = 0;
@@ -378,7 +451,7 @@ ShuffleTrafficPattern::ShuffleTrafficPattern(int nodes)
 
 }
 
-int ShuffleTrafficPattern::dest(int source)
+int ShuffleTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   int const shifted = source << 1;
@@ -398,7 +471,7 @@ TornadoTrafficPattern::TornadoTrafficPattern(int nodes, int k, int n, int xr)
 
 }
 
-int TornadoTrafficPattern::dest(int source)
+int TornadoTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
 
@@ -419,7 +492,7 @@ NeighborTrafficPattern::NeighborTrafficPattern(int nodes, int k, int n, int xr)
 
 }
 
-int NeighborTrafficPattern::dest(int source)
+int NeighborTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
 
@@ -470,7 +543,7 @@ void RandomPermutationTrafficPattern::randomize(int seed)
   RestoreRandomState(save_x, save_u); 
 }
 
-int RandomPermutationTrafficPattern::dest(int source)
+int RandomPermutationTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   assert((_dest[source] >= 0) && (_dest[source] < _nodes));
@@ -489,7 +562,7 @@ UniformRandomTrafficPattern::UniformRandomTrafficPattern(int nodes)
 
 }
 
-int UniformRandomTrafficPattern::dest(int source)
+int UniformRandomTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   return RandomInt(_nodes - 1);
@@ -505,7 +578,7 @@ UniformBackgroundTrafficPattern::UniformBackgroundTrafficPattern(int nodes, vect
   }
 }
 
-int UniformBackgroundTrafficPattern::dest(int source)
+int UniformBackgroundTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
 
@@ -524,7 +597,7 @@ DiagonalTrafficPattern::DiagonalTrafficPattern(int nodes)
 
 }
 
-int DiagonalTrafficPattern::dest(int source)
+int DiagonalTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   return ((RandomInt(2) == 0) ? ((source + 1) % _nodes) : source);
@@ -536,7 +609,7 @@ AsymmetricTrafficPattern::AsymmetricTrafficPattern(int nodes)
 
 }
 
-int AsymmetricTrafficPattern::dest(int source)
+int AsymmetricTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   int const half = _nodes / 2;
@@ -553,7 +626,7 @@ Taper64TrafficPattern::Taper64TrafficPattern(int nodes)
   }
 }
 
-int Taper64TrafficPattern::dest(int source)
+int Taper64TrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   if(RandomInt(1)) {
@@ -569,7 +642,7 @@ BadPermDFlyTrafficPattern::BadPermDFlyTrafficPattern(int nodes, int k, int n)
   
 }
 
-int BadPermDFlyTrafficPattern::dest(int source)
+int BadPermDFlyTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
 
@@ -586,7 +659,7 @@ BadPermYarcTrafficPattern::BadPermYarcTrafficPattern(int nodes, int k, int n,
 
 }
 
-int BadPermYarcTrafficPattern::dest(int source)
+int BadPermYarcTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   int const row = source / (_xr * _k);
@@ -609,7 +682,7 @@ HotSpotTrafficPattern::HotSpotTrafficPattern(int nodes, vector<int> hotspots,
   }
 }
 
-int HotSpotTrafficPattern::dest(int source)
+int HotSpotTrafficPattern::dest(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
 

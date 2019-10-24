@@ -127,6 +127,8 @@ InjectionProcess * InjectionProcess::New(string const & inject, int nodes,
     result = new OnOffInjectionProcess(nodes, load, alpha, beta, r1, initial);
   } else if (process_name == "custom") {
     result = new CustomInjectionProcess(nodes, load);
+  } else if (process_name == "trace_based") {
+    result = new TraceBasedInjectionProcess(nodes, load);
   } else {
     cout << "Invalid injection process: " << inject << endl;
     exit(-1);
@@ -187,13 +189,78 @@ CustomInjectionProcess::CustomInjectionProcess(int nodes, double rate)
 
 }
 
-bool CustomInjectionProcess::test(int source)
+bool CustomInjectionProcess::test(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   float source_rate = inj_rate_per_src[source];
   return (RandomFloat() < source_rate);
 }
 
+TraceBasedInjectionProcess::TraceBasedInjectionProcess(int nodes, double rate)
+    : InjectionProcess(nodes, rate)
+{
+    
+    FILE* trace_file = fopen("trace_file.txt", "r");
+
+    //resizing the trace
+    traces.resize(99999);
+
+    for (int trace_idx = 0; trace_idx < 99999; trace_idx++) {
+        traces[trace_idx].resize(3); //src, dest, timestamp
+    }
+    
+    //Populate vector<vector<float>> traces
+    char line[9999];
+    int str_idx;
+    int trace_idx = 0;
+    int num_entry, entry;
+
+    while(fgets(line, 9999, trace_file)) {
+        int char_idx = 0;
+        char character = line[char_idx];
+        num_entry = 0; //src, dest, timestamp
+        while (character != '\n') {
+            str_idx = 0;
+            char str_entry[9999] = " ";
+            assert(num_entry <= 3);
+            while (character != ' ' && character != '\n') {
+                str_entry[str_idx] = line[char_idx];
+                char_idx++;
+                character = line[char_idx];
+                str_idx++;
+            }
+            entry = atoi(str_entry);
+            traces[trace_idx][num_entry] = entry;
+            num_entry++;
+            if (character != '\n') {
+                char_idx++;
+                character = line[char_idx];
+            }
+        }
+        trace_idx++;
+    }
+}
+
+bool TraceBasedInjectionProcess::test(int source, int time)
+{
+    int trace_time = traces[0][2];
+    int trace_idx = 0;
+    int inject = 0;
+
+    //Assumption: entries from previous time should get deleted
+    //assert(trace_time >= time);
+
+    while (trace_time == time) { 
+        if (traces[trace_idx][0] == source) {
+            inject = 1;
+            traces.erase(traces.begin() + trace_idx); //Erase the entry
+            return inject;
+        }
+        trace_idx++;
+        trace_time = traces[trace_idx][2];
+    }
+    return inject;
+}
 
 BernoulliInjectionProcess::BernoulliInjectionProcess(int nodes, double rate)
   : InjectionProcess(nodes, rate)
@@ -201,7 +268,7 @@ BernoulliInjectionProcess::BernoulliInjectionProcess(int nodes, double rate)
 
 }
 
-bool BernoulliInjectionProcess::test(int source)
+bool BernoulliInjectionProcess::test(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
   return (RandomFloat() < _rate);
@@ -238,7 +305,7 @@ void OnOffInjectionProcess::reset()
   _state = _initial;
 }
 
-bool OnOffInjectionProcess::test(int source)
+bool OnOffInjectionProcess::test(int source, int time)
 {
   assert((source >= 0) && (source < _nodes));
 
