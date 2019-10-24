@@ -12,7 +12,7 @@ import random
 import scipy.io
 import numpy as np
 import pandas as pd                
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 #import sklearn
 
 from functions import *
@@ -26,7 +26,7 @@ import csv
 import random
 
 #for plotting
-from IPython.display import clear_output 
+#from IPython.display import clear_output 
 # for Earlystop
 
 from keras.models import Sequential, load_model
@@ -110,8 +110,8 @@ class ApplicationEnv:
         # Neural Net Model
         model = Sequential()
         model.add(Dense(100, input_dim=num_features, kernel_initializer='random_uniform', activation='relu'))      
-        model.add(Dense(100, kernel_initializer='random_uniform', activation='relu'))                                 # Hidden layer
-        model.add(Dense(100, kernel_initializer='random_uniform', activation='relu'))                                 # Hidden layer                                # Hidden layer
+        #model.add(Dense(50, kernel_initializer='random_uniform', activation='relu'))                                 # Hidden layer
+        model.add(Dense(50, kernel_initializer='random_uniform', activation='relu'))                                 # Hidden layer                                # Hidden layer
         model.add(Dense(1, kernel_initializer='random_uniform', activation='linear'))                # Output layer
         
         # Compile the model. Loss function is categorical crossentropy

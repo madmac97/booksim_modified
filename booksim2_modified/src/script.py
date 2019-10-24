@@ -1,5 +1,5 @@
 #! /usr/bin/python3
-from subprocess import call, Popen, PIPE, check_output
+#from subprocess import call, Popen, PIPE, check_output
 import os
 import pandas as pd
 import numpy as np
@@ -8,12 +8,12 @@ import random
 import csv
 #os.mkdir('outputs')
 
-k='5'
+k='4'
 newpath = os.path.relpath('./htree_mesh_comp/mesh_config')
 deviation_string = '/Standard_Deviation'
 node_string ='/Individual_Node_Stats'
 latency_string = '/latency'
-output_string = './output_'
+output_string = './output_random_'
 
 def replace_in_file(filename, key, newvalue):
 	f = open(filename,"r")
@@ -26,7 +26,7 @@ def replace_in_file(filename, key, newvalue):
 	f.write("".join(lines))
 	f.close()
 
-def resize_inj_rate(filename, size, value):
+def resize_inj_rate(filename, size, value,p,divisor):
 	k = int(size)
 	#inject_rates = []
 	with open(filename,'r') as f:
@@ -41,20 +41,23 @@ def resize_inj_rate(filename, size, value):
 	rows, cols = inject_rates.shape
 	for row in range(rows):
 		for col in range(cols):
-			if (value == 0):
-				inject_rates[row][col] = float(random.randint(1,9))/1000
+			if np.random.rand() < p:
+				if (value == 0):
+					inject_rates[row][col] = float(random.randint(1,9))/divisor
+				else:
+					inject_rates[row][col] = value
 			else:
-				inject_rates[row][col] = value
+				inject_rates[row][col] = 0
 			#inject_rates[row][col] = np.rand(0,1)/1000
 	#np.savetxt(filename, inject_rates,fmt='%s')
 	np.savetxt(filename, inject_rates)
 	f.close()
 
 
-def program(value,count):
+def program(value,count,p,divisor):
 		
 	replace_in_file(newpath,"k",k)
-	resize_inj_rate('inj_rate.txt',k,value)
+	resize_inj_rate('inj_rate.txt',k,value,p,divisor)
 
 
 	#call(["./booksim", "htree_mesh_comp/mesh_config"])
@@ -112,17 +115,23 @@ def program(value,count):
 			find_latency.append(line)
 
 	lat = find_latency[-1].split(" ")[4]
+	print(lat)
 #	f = open(latency_string,"a")
 #	f.write(lat)
 #	f.close()
 
 	result = np.concatenate((nodes,deviation,mean), axis = 1)
-	result = np.append(result,lat)	
-	result = result.reshape(1,-1)
-	df = pd.DataFrame(result)
-	#export_csv = df.to_csv (r'dataframe.csv', index = None, header=False)
+	result = np.append(result,lat)
 
-	with open(r'dataframe'+k+'.csv','a') as fd:
+	#result = lat #test
+	#
+	#result = np.array(result)
+	result = result.reshape(1,-1)
+	print(result)
+	df = pd.DataFrame(result)
+	print(df)	#export_csv = df.to_csv (r'dataframe.csv', index = None, header=False)
+
+	with open(r'dataframe.csv','a') as fd:
 		df.to_csv(fd, index = None, header= False)
 
 
@@ -131,21 +140,49 @@ def program(value,count):
 		np.savetxt(f,result,delimiter=" ",fmt='%s')
 
 
-	os.mkdir('output_'+k+str(value)+str(count))
+	try:
+		os.mkdir('output_random_'+k+str(value)+str(count))
+	except:
+		pass
 	shutil.copy2('Individual_Node_Stats', output_string+k+str(value)+str(count)+node_string)
 	shutil.copy2('Standard_Deviation',output_string+k+str(value)+str(count)+deviation_string)
 	shutil.copy2('inj_rate.txt',output_string+k+str(value)+str(count)+'/inj_rate.txt')
 	f = open(output_string+k+str(value)+str(count)+latency_string,"w")
 	f.write(lat)
 	f.close()
+	print(lat)
 
-for i in [0.001,0.002,0.003,0.004,0.005,0.006,0.007,0.008,0.009]:
-	program(i,0)
+#for i in [0.0001,0.0002,0.0003,0.0004,0.0005,0.0006,0.0007,0.0008,0.0009]:
+#	program(i,0)
 
 count = 0
-for i in range(4990):
+for i in range(1000):
 	count = count+1
-	program(0,count)
+#	program(0,count,0.5,10000)
+
+for i in range(1000):
+	count = count + 1
+#	program(0,count,0.8,10000)
+
+for i in range(1000):
+	count = count + 1
+#	program(0,count,0.2,10000)
+
+for i in range(1000):
+	count = count + 1
+#	program(0,count,0.5,100)
+
+for i in range(1000):
+	count = count + 1
+#	program(0,count,0.8,100)
+
+for i in range(1000):
+	count = count + 1
+#	program(0,count,0.2,100)
+
+#for i in range(3000):
+count = count + 1
+#program(0,count,1,100)
 
 k = int(k)
 size = k*k*k*k + 1
@@ -161,9 +198,9 @@ for i in range(1,size):
 	header.append("mean_arrival_"+str(i))
 header.append("average_latency")
 
-df = pd.read_csv('dataframe'+str(k)+'.csv',header = None)
-
-with open('dataframe'+str(k)+'.csv','wb') as f:
+df = pd.read_csv('dataframe.csv',header = None)
+#print(header)
+with open('dataframe.csv','w') as f:
 	w = csv.writer(f)
 	w.writerow(header)
 	for index, data in df.iterrows():
